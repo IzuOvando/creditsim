@@ -3,7 +3,7 @@
 This stands in for what would be an HTTP call to a real scoring provider
 (credit bureau, internal ML model). For the challenge it:
 
-- Sleeps 1-3 seconds (simulated latency).
+- Sleeps 2-5 seconds (simulated latency).
 - Raises an exception 10% of the time (simulated outage).
 - Otherwise approves/rejects randomly.
 
@@ -29,7 +29,7 @@ _APPROVAL_RATE_GIVEN_NO_FAILURE = 0.70
 
 
 async def run_risk_audit(sim_id: int) -> None:
-    await asyncio.sleep(random.uniform(1.0, 3.0))
+    await asyncio.sleep(random.uniform(2.0, 5.0))
 
     try:
         if random.random() < _FAILURE_RATE:
