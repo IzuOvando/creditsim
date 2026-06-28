@@ -77,6 +77,29 @@ export function SimulationForm() {
 
   function handleChange(field: keyof FormValues, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    // Clear error as the user types so it doesn't linger after they fix it
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  }
+
+  // Validate a single field when the user leaves it (onBlur)
+  function handleBlur(field: keyof FormValues, value: string) {
+    const currentForm = { ...form, [field]: value };
+    const allErrors = validate(currentForm);
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (allErrors[field]) {
+        next[field] = allErrors[field];
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
   }
 
   async function handleSubmit(ev: React.FormEvent) {
@@ -122,7 +145,10 @@ export function SimulationForm() {
               value={form.monto}
               error={errors.monto}
               onChange={(v) => handleChange("monto", v)}
+              onBlur={(v) => handleBlur("monto", v)}
               placeholder="10 000"
+              min="0.01"
+              max="100000000"
             />
             <FormField
               label="Tasa nominal anual"
@@ -131,7 +157,10 @@ export function SimulationForm() {
               value={form.tasa_anual}
               error={errors.tasa_anual}
               onChange={(v) => handleChange("tasa_anual", v)}
+              onBlur={(v) => handleBlur("tasa_anual", v)}
               placeholder="20"
+              min="0"
+              max="100"
             />
             <FormField
               label="Plazo"
@@ -140,7 +169,10 @@ export function SimulationForm() {
               value={form.plazo_meses}
               error={errors.plazo_meses}
               onChange={(v) => handleChange("plazo_meses", v)}
+              onBlur={(v) => handleBlur("plazo_meses", v)}
               placeholder="12"
+              min="1"
+              max="360"
             />
           </div>
 
@@ -215,10 +247,14 @@ interface FormFieldProps {
   value: string;
   error?: string;
   onChange: (value: string) => void;
+  onBlur?: (value: string) => void;
   placeholder?: string;
+  min?: string;
+  max?: string;
 }
 
-function FormField({ label, hint, id, value, error, onChange, placeholder }: FormFieldProps) {
+function FormField({ label, hint, id, value, error, onChange, onBlur, placeholder, min, max }: FormFieldProps) {
+  const hasError = !!error;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between">
@@ -233,14 +269,26 @@ function FormField({ label, hint, id, value, error, onChange, placeholder }: For
         type="number"
         inputMode="decimal"
         step="any"
+        min={min}
+        max={max}
         value={value}
         onChange={(ev) => onChange(ev.target.value)}
+        onBlur={(ev) => onBlur?.(ev.target.value)}
         placeholder={placeholder}
         style={{ color: "#0f172a" }}
-        className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+        className={`rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-colors focus:outline-none focus:ring-2 ${
+          hasError
+            ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
+            : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500/20"
+        }`}
       />
       {error && (
-        <span className="text-xs text-rose-600">{error}</span>
+        <span className="flex items-center gap-1 text-xs font-medium text-rose-600">
+          <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M6 1a5 5 0 100 10A5 5 0 006 1zm-.5 2.5h1v3.25h-1V3.5zm0 4.25h1v1h-1v-1z"/>
+          </svg>
+          {error}
+        </span>
       )}
     </div>
   );
