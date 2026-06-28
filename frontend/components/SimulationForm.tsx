@@ -13,6 +13,11 @@ const EMPTY_FORM: FormValues = { monto: "", tasa_anual: "", plazo_meses: "" };
 const POLL_INTERVAL_MS = 1500;
 const MAX_POLL_ATTEMPTS = 5;
 
+function fmtCurrency(value: string): string {
+  const n = Number(value);
+  return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function SimulationForm() {
   const [form, setForm] = useState<FormValues>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -29,21 +34,18 @@ export function SimulationForm() {
     setLoaded(true);
   }, []);
 
-  // 2) Persist inputs to localStorage on each change — but only after hydration,
-  // otherwise we'd overwrite saved data with the empty initial state.
+  // 2) Persist inputs to localStorage on each change — only after hydration.
   useEffect(() => {
     if (!loaded) return;
     saveForm(form);
   }, [form, loaded]);
 
-  // 3) Invalidate the result whenever the user changes `monto`. The previous
-  // table must disappear immediately so the user is forced to recalculate.
+  // 3) Invalidate the result whenever the user changes `monto`.
   useEffect(() => {
     setResult(null);
   }, [form.monto]);
 
-  // 4) Polling: while result.audit_status === "pending", refresh every 1.5s,
-  // up to 5 attempts. Cancel on unmount or when the status moves on.
+  // 4) Polling while audit_status === "pending".
   useEffect(() => {
     if (!result || result.audit_status !== "pending") return;
 
@@ -57,11 +59,7 @@ export function SimulationForm() {
           pollTimer.current = null;
           setResult((prev) =>
             prev
-              ? {
-                  ...prev,
-                  audit_status: status.audit_status,
-                  audit_message: status.audit_message,
-                }
+              ? { ...prev, audit_status: status.audit_status, audit_message: status.audit_message }
               : prev
           );
         }
@@ -104,78 +102,103 @@ export function SimulationForm() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 p-6">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900">CreditSim</h1>
-        <p className="text-sm text-slate-600">
-          Simulador de créditos con tabla de amortización (Sistema Francés).
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6">
+
+      {/* ── Form card ── */}
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-1 text-lg font-semibold text-slate-900 tracking-tight">
+          Parámetros del crédito
+        </h2>
+        <p className="mb-5 text-sm text-slate-500">
+          Ingresá el monto, la tasa nominal anual y el plazo para calcular tu tabla.
         </p>
-      </header>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-      >
-        <div className="grid gap-4 sm:grid-cols-3">
-          <FormField
-            label="Monto"
-            id="monto"
-            value={form.monto}
-            error={errors.monto}
-            onChange={(v) => handleChange("monto", v)}
-            placeholder="10000"
-          />
-          <FormField
-            label="Tasa anual (%)"
-            id="tasa_anual"
-            value={form.tasa_anual}
-            error={errors.tasa_anual}
-            onChange={(v) => handleChange("tasa_anual", v)}
-            placeholder="20"
-          />
-          <FormField
-            label="Plazo (meses)"
-            id="plazo_meses"
-            value={form.plazo_meses}
-            error={errors.plazo_meses}
-            onChange={(v) => handleChange("plazo_meses", v)}
-            placeholder="12"
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <FormField
+              label="Monto principal"
+              hint="MXN"
+              id="monto"
+              value={form.monto}
+              error={errors.monto}
+              onChange={(v) => handleChange("monto", v)}
+              placeholder="10 000"
+            />
+            <FormField
+              label="Tasa nominal anual"
+              hint="%"
+              id="tasa_anual"
+              value={form.tasa_anual}
+              error={errors.tasa_anual}
+              onChange={(v) => handleChange("tasa_anual", v)}
+              placeholder="20"
+            />
+            <FormField
+              label="Plazo"
+              hint="meses"
+              id="plazo_meses"
+              value={form.plazo_meses}
+              error={errors.plazo_meses}
+              onChange={(v) => handleChange("plazo_meses", v)}
+              placeholder="12"
+            />
+          </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-        >
-          {submitting ? "Calculando…" : "Calcular"}
-        </button>
-        {submitError && <p className="text-sm text-rose-700">{submitError}</p>}
-      </form>
+          <div className="flex items-center gap-4">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+            >
+              {submitting ? (
+                <>
+                  <Spinner />
+                  Calculando…
+                </>
+              ) : (
+                "Calcular tabla"
+              )}
+            </button>
+            {submitError && (
+              <p className="text-sm text-rose-600">{submitError}</p>
+            )}
+          </div>
+        </form>
+      </section>
 
+      {/* ── Results ── */}
       {result && (
         <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="text-sm text-slate-700">
-              <div>
-                Cuota mensual:{" "}
-                <span className="font-mono font-semibold">{result.cuota_mensual}</span>
-              </div>
-              <div>
-                Total a pagar:{" "}
-                <span className="font-mono">{result.total_pagado}</span>
-              </div>
-              <div>
-                Total intereses:{" "}
-                <span className="font-mono">{result.total_intereses}</span>
-              </div>
-            </div>
+          {/* Stat cards */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatCard
+              label="Cuota mensual"
+              value={`$ ${fmtCurrency(result.cuota_mensual)}`}
+              accent
+            />
+            <StatCard
+              label="Total a pagar"
+              value={`$ ${fmtCurrency(result.total_pagado)}`}
+            />
+            <StatCard
+              label="Total intereses"
+              value={`$ ${fmtCurrency(result.total_intereses)}`}
+              sub={`${result.plazo_meses} cuotas`}
+            />
+          </div>
+
+          {/* Audit badge */}
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <span className="text-sm font-medium text-slate-700">
+              Auditoría de riesgo
+            </span>
             <AuditStatusBadge
               status={result.audit_status}
               message={result.audit_message}
             />
           </div>
 
+          {/* Table */}
           <AmortizationTable rows={result.tabla} />
         </section>
       )}
@@ -183,8 +206,11 @@ export function SimulationForm() {
   );
 }
 
+/* ─── Sub-components ──────────────────────────────────────── */
+
 interface FormFieldProps {
   label: string;
+  hint?: string;
   id: string;
   value: string;
   error?: string;
@@ -192,12 +218,15 @@ interface FormFieldProps {
   placeholder?: string;
 }
 
-function FormField({ label, id, value, error, onChange, placeholder }: FormFieldProps) {
+function FormField({ label, hint, id, value, error, onChange, placeholder }: FormFieldProps) {
   return (
-    <div className="flex flex-col">
-      <label htmlFor={id} className="text-sm font-medium text-slate-700">
-        {label}
-      </label>
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between">
+        <label htmlFor={id} className="text-sm font-medium text-slate-700">
+          {label}
+        </label>
+        {hint && <span className="text-xs text-slate-400">{hint}</span>}
+      </div>
       <input
         id={id}
         name={id}
@@ -207,9 +236,59 @@ function FormField({ label, id, value, error, onChange, placeholder }: FormField
         value={value}
         onChange={(ev) => onChange(ev.target.value)}
         placeholder={placeholder}
-        className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+        style={{ color: "#0f172a" }}
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
       />
-      {error && <span className="mt-1 text-xs text-rose-700">{error}</span>}
+      {error && (
+        <span className="text-xs text-rose-600">{error}</span>
+      )}
     </div>
+  );
+}
+
+interface StatCardProps {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: boolean;
+}
+
+function StatCard({ label, value, sub, accent }: StatCardProps) {
+  return (
+    <div
+      className={`rounded-xl border p-4 shadow-sm ${
+        accent
+          ? "border-indigo-200 bg-indigo-50"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p
+        className={`mt-1 font-mono text-xl font-bold tabular-nums ${
+          accent ? "text-indigo-700" : "text-slate-900"
+        }`}
+      >
+        {value}
+      </p>
+      {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg
+      className="h-4 w-4 animate-spin"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+      />
+    </svg>
   );
 }
