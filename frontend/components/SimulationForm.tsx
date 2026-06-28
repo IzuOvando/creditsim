@@ -173,6 +173,7 @@ export function SimulationForm() {
               placeholder="12"
               min="1"
               max="360"
+              integer
             />
           </div>
 
@@ -240,6 +241,9 @@ export function SimulationForm() {
 
 /* ─── Sub-components ──────────────────────────────────────── */
 
+// Characters that create invalid numeric values in <input type="number">
+const ALWAYS_BLOCKED = ["-", "+", "e", "E"];
+
 interface FormFieldProps {
   label: string;
   hint?: string;
@@ -251,10 +255,26 @@ interface FormFieldProps {
   placeholder?: string;
   min?: string;
   max?: string;
+  integer?: boolean; // true → also block "." and ","
 }
 
-function FormField({ label, hint, id, value, error, onChange, onBlur, placeholder, min, max }: FormFieldProps) {
+function FormField({ label, hint, id, value, error, onChange, onBlur, placeholder, min, max, integer }: FormFieldProps) {
   const hasError = !!error;
+
+  function handleKeyDown(ev: React.KeyboardEvent<HTMLInputElement>) {
+    const blocked = integer ? [...ALWAYS_BLOCKED, ".", ","] : ALWAYS_BLOCKED;
+    if (blocked.includes(ev.key)) {
+      ev.preventDefault();
+    }
+  }
+
+  function handleChange(ev: React.ChangeEvent<HTMLInputElement>) {
+    const raw = ev.target.value;
+    // After blocking keys, also guard against paste: reject if parsed value is negative
+    if (raw !== "" && Number(raw) < 0) return;
+    onChange(raw);
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between">
@@ -267,12 +287,13 @@ function FormField({ label, hint, id, value, error, onChange, onBlur, placeholde
         id={id}
         name={id}
         type="number"
-        inputMode="decimal"
-        step="any"
+        inputMode={integer ? "numeric" : "decimal"}
+        step={integer ? "1" : "any"}
         min={min}
         max={max}
         value={value}
-        onChange={(ev) => onChange(ev.target.value)}
+        onKeyDown={handleKeyDown}
+        onChange={handleChange}
         onBlur={(ev) => onBlur?.(ev.target.value)}
         placeholder={placeholder}
         style={{ color: "#0f172a" }}
