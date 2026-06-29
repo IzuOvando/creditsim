@@ -76,15 +76,21 @@ def calcular_frances(
         new_saldo = _round(saldo - capital)
 
         if mes == n:
-            # Ajuste de centavos en la última cuota para cerrar el saldo en 0
+            # Ajuste de centavos en la última fila para cerrar el saldo en 0.
+            # La cuota de esta fila es interes + capital ajustado (puede diferir
+            # de la cuota fija por centavos de redondeo) — así la suma de la
+            # columna cuota == monto + total_intereses al centavo.
             capital = _round(capital + new_saldo)
+            cuota_fila = interes + capital
             new_saldo = Decimal("0.00")
+        else:
+            cuota_fila = cuota
 
         total_intereses += interes
         tabla.append(
             AmortizationRow(
                 mes=mes,
-                cuota=cuota,
+                cuota=cuota_fila,
                 interes=interes,
                 capital=capital,
                 saldo=new_saldo,

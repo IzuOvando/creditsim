@@ -22,6 +22,13 @@ def test_caso_tipico_10k_20pct_12m():
     assert result.tabla[-1].mes == 12
 
 
+def test_consistencia_total_pagado():
+    """Invariant: total_pagado == monto + total_intereses (to the cent)."""
+    monto = Decimal("10000")
+    result = calcular_frances(monto, Decimal("20"), 12)
+    assert result.total_pagado == monto + result.total_intereses
+
+
 def test_tasa_cero():
     """Zero interest rate: monthly payment equals principal / months, zero interest."""
     result = calcular_frances(Decimal("12000"), Decimal("0"), 12)
